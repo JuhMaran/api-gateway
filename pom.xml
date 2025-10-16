@@ -10,8 +10,8 @@
     </parent>
     <groupId>com.infra-domain</groupId>
     <artifactId>api-gateway</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>API Gateway</name>
+    <version>1.0.0</version>
+    <name>api-gateway</name>
     <description>Spring Cloud Gateway - API Gateway com Eureka Discovery</description>
     <url>https://github.com/JuhMaran/api-gateway</url>
     <licenses>
