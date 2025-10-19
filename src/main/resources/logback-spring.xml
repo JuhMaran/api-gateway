@@ -1,23 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true">
 
-    <!-- Define padrão de log -->
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    <!-- Propriedades -->
     <property name="LOG_PATH" value="logs"/>
     <property name="APP_NAME" value="api-gateway"/>
 
-    <!-- Appender de console -->
+    <!-- Padrão colorido para console -->
+    <property name="COLORED_PATTERN"
+              value="%d{HH:mm:ss.SSS} %highlight(%-5level) [%cyan(%thread)] %magenta(%logger{36}) - %msg%n"/>
+
+    <!-- Padrão normal para arquivo -->
+    <property name="FILE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- Appender: Console colorido -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>${COLORED_PATTERN}</pattern>
         </encoder>
     </appender>
 
-    <!-- Appender de arquivo -->
+    <!-- Appender: Arquivo -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/${APP_NAME}.log</file>
         <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>${FILE_PATTERN}</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_PATH}/${APP_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -25,19 +32,18 @@
         </rollingPolicy>
     </appender>
 
-    <!-- Logger do Spring e Gateway -->
+    <!-- Loggers específicos -->
     <logger name="org.springframework.cloud.gateway" level="INFO"/>
     <logger name="org.springframework.web" level="INFO"/>
     <logger name="org.springframework.boot" level="INFO"/>
 
-    <!-- Logger específico para AuditGlobalFilter -->
+    <!-- Logger para o filtro de auditoria -->
     <logger name="com.infradomain.apigateway.config.AuditGlobalFilter" level="WARN" additivity="false">
-        <!-- Envia para console e arquivo -->
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
     </logger>
 
-    <!-- Root logger -->
+    <!-- Root -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>

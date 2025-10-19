@@ -42,6 +42,8 @@ public class GatewayConfig {
         .uri("http://localhost:8090"))
       .route("audit-log-service", r -> r.path("/api/v1/audit/**")
         .uri("http://localhost:8091"))
+      .route("container-measure-service", r -> r.path("/api/v1/container-measures/**")
+        .uri("http://localhost:8093"))
       .build();
   }
 
