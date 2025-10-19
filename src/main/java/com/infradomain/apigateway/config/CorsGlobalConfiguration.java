@@ -23,7 +23,7 @@ public class CorsGlobalConfiguration {
     cors.setAllowedOrigins(List.of("http://localhost:4200"));
     cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     cors.setAllowedHeaders(List.of("*"));
-    cors.setAllowCredentials(true);
+    cors.setAllowCredentials(false);
     cors.setMaxAge(3600L);
 
     var source = new UrlBasedCorsConfigurationSource();

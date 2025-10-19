@@ -30,22 +30,23 @@ infra-domain/
 URL Frontend: http://localhost:4200
 URL de rotas padrão: `http://localhost:8080/api/v1/{serviço}/{recurso}`
 
-| Serviço                 | Porta  | Exemplo de endpoint    |
-|-------------------------|--------|------------------------|
-| `config-service`        | `8888` | `/**`                  |
-| `discovery-service`     | `8761` | `/**`                  |
-| `api-gateway`           | `8080` | `/**`                  |
-| `auth-security-service` | `8081` | `/api/v1/auth/**`      |
-| `users-service`         | `8082` | `/api/v1/users/**`     |
-| `roles-service`         | `8083` | `/api/v1/roles/**`     |
-| `billing-service`       | `8084` | `/api/v1/billing/**`   |
-| `finance-service`       | `8085` | `/api/v1/finance/**`   |
-| `supplier-service`      | `8086` | `/api/v1/suppliers/**` |
-| `beer-service`          | `8087` | `/api/v1/beers/**`     |
-| `product-service`       | `8088` | `/api/v1/products/**`  |
-| `tap-service`           | `8089` | `/api/v1/taps/**`      |
-| `pos-service`           | `8090` | `/api/v1/sales/**`     |
-| `audit-log-service`     | `8091` | `/api/v1/audit/**`     |
+| Serviço                     | Porta  | Exemplo de endpoint             |
+|-----------------------------|--------|---------------------------------|
+| `config-service`            | `8888` | `/**`                           |
+| `discovery-service`         | `8761` | `/**`                           |
+| `api-gateway`               | `8080` | `/**`                           |
+| `auth-security-service`     | `8081` | `/api/v1/auth/**`               |
+| `users-service`             | `8082` | `/api/v1/users/**`              |
+| `roles-service`             | `8083` | `/api/v1/roles/**`              |
+| `billing-service`           | `8084` | `/api/v1/billing/**`            |
+| `finance-service`           | `8085` | `/api/v1/finance/**`            |
+| `supplier-service`          | `8086` | `/api/v1/suppliers/**`          |
+| `beer-service`              | `8087` | `/api/v1/beers/**`              |
+| `product-service`           | `8088` | `/api/v1/products/**`           |
+| `tap-service`               | `8089` | `/api/v1/taps/**`               |
+| `pos-service`               | `8090` | `/api/v1/sales/**`              |
+| `audit-log-service`         | `8091` | `/api/v1/audit/**`              |
+| `container-measure-service` | `8093` | `/api/v1/container-measures/**` |
 
 ---
 
