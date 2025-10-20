@@ -1,4 +1,4 @@
-package com.infradomain.apigateway.config;
+package com.infradomain.apigateway.filter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,31 +18,38 @@ public class AuditGlobalFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(AuditGlobalFilter.class);
 
+  // Bean único de WebClient para auditoria
   @Bean
-  public GlobalFilter auditFilter(WebClient.Builder webClientBuilder) {
-    WebClient client = webClientBuilder
+  public WebClient auditWebClient(WebClient.Builder builder) {
+    return builder
       .baseUrl("http://localhost:8091/api/v1/audit")
       .build();
+  }
 
+  // Global Filter de auditoria
+  @Bean
+  public GlobalFilter auditFilter(WebClient auditWebClient) {
     return (exchange, chain) -> {
 
-      exchange.getRequest().getMethod();
       String method = exchange.getRequest().getMethod().name();
       String path = exchange.getRequest().getURI().getPath();
 
       var event = new AuditEvent("gateway", method, path);
 
-      return client.post()
+      // Envia evento de auditoria de forma assíncrona
+      return auditWebClient.post()
         .bodyValue(event)
         .retrieve()
         .bodyToMono(Void.class)
         .doOnError(ex -> logger.warn("[AUDIT] Falha ao enviar evento: {}", ex.getMessage()))
-        .onErrorResume(_ -> chain.filter(exchange))
+        .onErrorContinue((ex, obj) -> {
+          // Continua mesmo em caso de erro
+        })
         .then(chain.filter(exchange));
     };
-
   }
 
+  // Classe interna para o evento de auditoria
   public record AuditEvent(String source, String method, String path) {
   }
 

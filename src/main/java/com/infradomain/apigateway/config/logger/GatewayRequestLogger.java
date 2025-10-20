@@ -1,4 +1,4 @@
-package com.infradomain.apigateway.config;
+package com.infradomain.apigateway.config.logger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,7 +9,8 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * api-gateway
+ * API Gateway - Logger global de requisições <br>
+ * Captura requisições, respostas e erros do gateway
  *
  * @author Juliane Maran
  * @since 19/10/2025
@@ -21,9 +22,17 @@ public class GatewayRequestLogger implements GlobalFilter {
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-    log.info("[GATEWAY] {} -> {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI());
-    return chain.filter(exchange).doOnSuccess((done) ->
-      log.info("[GATEWAY] Response status: {}", exchange.getResponse().getStatusCode()));
+
+    // Log da requisição
+    log.info("[GATEWAY] Request -> {} {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI());
+
+    return chain.filter(exchange)
+      // Log da resposta
+      .doOnSuccess(done -> log.info("[GATEWAY] Response status: {}",
+        exchange.getResponse().getStatusCode()))
+      // Captura falhas do gateway
+      .doOnError(error -> log.error("[GATEWAY] Falha no gateway: {} - {}",
+        error.getClass().getSimpleName(), error.getMessage()));
   }
 
 }

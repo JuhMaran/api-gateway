@@ -1,0 +1,36 @@
+# application-dev.yml — Configuração de Desenvolvimento
+spring:
+  config:
+    activate:
+      on-profile: dev
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 5s
+
+gateway:
+  cors:
+    allowed-origins:
+      - http://localhost:4200
+      - http://localhost:4200/app
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+
+management:
+  endpoint:
+    health:
+      show-details: ALWAYS
+
+logging:
+  level:
+    root: INFO
+    com.infradomain.apigateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty.http.client: WARN

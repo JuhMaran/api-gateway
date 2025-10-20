@@ -1,6 +1,295 @@
 # API Gateway
 
-## Executar a Aplicação
+**Versão:** 1.0.0  
+**Stack:** Java 25 · Spring Boot 3.5.6 · Spring Cloud 2025.0.0 · WebFlux · Resilience4j · Caffeine Cache · Prometheus
+
+---
+
+## Visão Geral
+
+O **API Gateway** atua como a **porta de entrada única** para o ecossistema de microsserviços da plataforma **TapTrack
+Systems**, centralizando:
+
+- Roteamento inteligente com **Spring Cloud Gateway (WebFlux)**
+- Descoberta de serviços com **Eureka Client**
+- Configuração de **CORS dinâmico** por ambiente
+- **Filtros globais** de auditoria e logging
+- **Circuit Breaker + Fallback** via Resilience4j
+- **Caffeine Cache** para otimizar o LoadBalancer
+- **Métricas Prometheus** e monitoramento via Actuator
+
+---
+
+## Estrutura de Diretórios
+
+```
+src/main/java/com/infradomain/apigateway/
+├── ApiGatewayApplication.java
+├── config/
+│   ├── CacheConfig.java               # Configuração do Caffeine Cache
+│   ├── CorsConfig.java                # CORS dinâmico via application.yml
+│   ├── WebClientConfig.java           # Bean singleton de WebClient
+│   ├── GlobalFilterConfig.java        # Registro de filtros globais (ex: auditoria)
+│   ├── gateway/                       # Rotas organizadas por domínio/serviço
+│   │   ├── AuthGatewayConfig.java
+│   │   ├── UserGatewayConfig.java
+│   │   ├── AuditGatewayConfig.java
+│   │   ├── ContainerMeasureGatewayConfig.java
+│   │   └── ...
+│   └── resilience/                    # Resiliência e fallback centralizados
+│       ├── CircuitBreakerConfig.java  # Configura Resilience4j global
+│       └── FallbackController.java    # Endpoint para fallback
+├── filter/
+│   ├── AuditGlobalFilter.java         # Envia eventos de auditoria
+│   └── GatewayRequestLogger.java      # Loga requisições e respostas
+├── controller/
+│   └── HealthController.java          # Endpoint de health check
+├── resources/
+│   ├── application.yml                # Configuração base (dev)
+│   ├── application-prod.yml           # Configuração de produção
+│   └── logback-spring.xml             # Configuração de logs
+└── Dockerfile
+````
+
+---
+
+## Configurações Principais
+
+### 1. CORS Dinâmico
+
+Definido via `application.yml`, permitindo **origens diferentes por ambiente**.
+
+```yaml
+cors:
+  allowed-origins:
+    - http://localhost:4200
+````
+
+Em `application-prod.yml`:
+
+```yaml
+cors:
+  allowed-origins:
+    - https://app.taptrack.com
+```
+
+```java
+
+@Configuration
+public class CorsConfig implements WebFluxConfigurer {
+  @Value("${cors.allowed-origins}")
+  private List<String> allowedOrigins;
+
+  @Override
+  public void addCorsMappings(CorsRegistry registry) {
+    registry.addMapping("/**")
+      .allowedOrigins(allowedOrigins.toArray(new String[ 0 ]))
+      .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+      .allowedHeaders("*")
+      .exposedHeaders("*");
+  }
+}
+```
+
+---
+
+### 2. Circuit Breaker + Fallback (Resilience4j)
+
+Configuração central em `/config/resilience/CircuitBreakerConfig.java`.
+
+```
+resilience4j:
+circuitbreaker:
+instances:
+auditService:
+slidingWindowSize:10
+minimumNumberOfCalls:5
+failureRateThreshold:50
+waitDurationInOpenState:10s
+```
+
+Fallback padrão:
+
+```java
+
+@RestController
+@RequestMapping("/fallback")
+public class FallbackController {
+  @GetMapping("/{service}")
+  public Mono<ResponseEntity<String>> fallback(@PathVariable String service) {
+    return Mono.just(ResponseEntity
+      .status(HttpStatus.SERVICE_UNAVAILABLE)
+      .body("Serviço temporariamente indisponível: " + service));
+  }
+}
+```
+
+---
+
+### 3. Cache com Caffeine
+
+Aumenta a performance do **Spring Cloud LoadBalancer**, evitando sobrecarga de descoberta via Eureka.
+
+```java
+
+@Configuration
+public class CacheConfig {
+  @Bean
+  public Caffeine<Object, Object> caffeineConfig() {
+    return Caffeine.newBuilder()
+      .expireAfterWrite(10, TimeUnit.MINUTES)
+      .maximumSize(1000);
+  }
+
+  @Bean
+  public CacheManager cacheManager(Caffeine<Object, Object> caffeine) {
+    CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+    cacheManager.setCaffeine(caffeine);
+    return cacheManager;
+  }
+}
+```
+
+---
+
+### 4. WebClient Global
+
+`WebClient` configurado como **bean singleton** para uso em filtros (como auditoria).
+
+```java
+
+@Configuration
+public class WebClientConfig {
+  @Bean
+  public WebClient.Builder webClientBuilder() {
+    return WebClient.builder()
+      .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+  }
+}
+```
+
+---
+
+### 5. Auditoria e Logging
+
+**AuditGlobalFilter.java**
+
+```java
+
+@Bean
+public GlobalFilter auditFilter(WebClient.Builder webClientBuilder) {
+  WebClient client = webClientBuilder.baseUrl("http://localhost:8091/api/v1/audit").build();
+  return (exchange, chain) -> {
+    var event = new AuditEvent("gateway", exchange.getRequest().getMethod().name(), exchange.getRequest().getURI().getPath());
+    return client.post()
+      .bodyValue(event)
+      .retrieve()
+      .bodyToMono(Void.class)
+      .doOnError(ex -> log.warn("[AUDIT] Falha ao enviar evento: {}", ex.getMessage()))
+      .onErrorResume(e -> chain.filter(exchange))
+      .then(chain.filter(exchange));
+  };
+}
+```
+
+**GatewayRequestLogger.java**
+
+```java
+
+@Component
+public class GatewayRequestLogger implements GlobalFilter {
+  private static final Logger log = LoggerFactory.getLogger(GatewayRequestLogger.class);
+
+  @Override
+  public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    log.info("[GATEWAY] {} -> {}", exchange.getRequest().getMethod(), exchange.getRequest().getURI());
+    return chain.filter(exchange)
+      .doOnSuccess(done -> log.info("[GATEWAY] Response: {}", exchange.getResponse().getStatusCode()))
+      .doOnError(ex -> log.error("[GATEWAY] Erro no fluxo: {}", ex.getMessage()));
+  }
+}
+```
+
+---
+
+## Rotas Modulares
+
+Cada módulo tem sua configuração em `/config/gateway`.
+
+Exemplo: `AuditGatewayConfig.java`
+
+```java
+
+@Configuration
+public class AuditGatewayConfig {
+  @Bean
+  public RouteLocator auditRoutes(RouteLocatorBuilder builder) {
+    return builder.routes()
+      .route("audit-log-service", r -> r.path("/api/v1/audit/**")
+        .filters(f -> f.circuitBreaker(c -> c
+          .setName("auditService")
+          .setFallbackUri("forward:/fallback/audit")))
+        .uri("http://localhost:8091"))
+      .build();
+  }
+}
+```
+
+---
+
+## **Build e Execução**
+
+### Local
+
+```bash
+mvn clean package -DskipTests
+java -jar target/api-gateway-1.0.0.jar
+```
+
+### Docker**
+
+```bash
+docker build -t api-gateway .
+docker run -p 8080:8080 api-gateway
+```
+
+---
+
+## Boas Práticas Adotadas
+
+✅ Configuração modular (por domínio de serviço)
+✅ Evita propriedades depreciadas (`RouteDefinition` via Java config)
+✅ Beans reutilizáveis (`WebClient`, `CacheManager`)
+✅ Filtros globais bem definidos e desacoplados
+✅ Resiliência com fallback centralizado
+✅ Cache de descoberta otimizado com Caffeine
+✅ Logging estruturado (Logback com rotação diária)
+✅ Documentação e padronização corporativa
+
+---
+
+## Observabilidade e Monitoramento
+
+* `/actuator/health` → Verifica integridade do gateway
+* `/actuator/metrics` → Métricas internas (via Micrometer)
+* `/actuator/prometheus` → Exporta métricas para Prometheus
+* `/actuator/gateway/routes` → Lista rotas ativas
+
+---
+
+## Autoria
+
+**Desenvolvido por:** [Juliane Maran](https://github.com/JuhMaran)
+**Organização:** TapTrack Systems
+**Licença:** [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
+---
+
+> “Um gateway bem projetado é o ponto de entrada da arquitetura e o primeiro passo para a resiliência.” 💡
+
+---
+
+## Observação sobre Execução
 
 ### Usando Docker
 
@@ -23,83 +312,44 @@ docker run -d --network taptrack-net --name frontend -p 4200:4200 taptrack-front
 
 ---
 
-## Estrutura de Pastas
+## Estrutura de Pacotes
 
+```text
+src/main/java/com/infradomain/apigateway/
+├── ApiGatewayApplication.java
+├── config/
+│   ├── CacheConfig.java                 # Configuração do Caffeine Cache
+│   ├── CorsConfig.java                  # CORS dinâmico via application.yml
+│   ├── WebClientConfig.java             # Bean singleton de WebClient
+│   ├── GlobalFilterConfig.java          # Registro de filtros globais (ex: auditoria)
+│   ├── gateway/                         # Rotas organizadas por domínio/serviço
+│   │   ├── AuthGatewayConfig.java
+│   │   ├── UserGatewayConfig.java
+│   │   ├── AuditGatewayConfig.java
+│   │   ├── ContainerMeasureGatewayConfig.java
+│   │   └── ...
+│   └── resilience/                      # Configurações de resiliência e fallback
+│       ├── CircuitBreakerConfig.java    # Configura parâmetros globais do Resilience4j
+│       └── FallbackController.java      # Controlador de fallback dos serviços
+├── filter/
+│   ├── AuditGlobalFilter.java
+│   ├── LoggingFilter.java
+│   └── AuthenticationFilter.java
+├── util/
+│   └── RequestUtils.java
+└── controller/
+    └── HealthController.java
 ```
-infra-domain/
-├── api-gateway/
-│   ├── src/main/java/com/infradomain/apigateway/
-│   │   ├── ApiGatewayApplication.java
-│   │   └── config/
-│   │       ├── GatewayConfig.java
-│   │       ├── CorsGlobalConfiguration.java
-│   │       └── AuditGlobalFilter.java
-│   └── resources/
-│       ├── application.yml
-│       └── logback-spring.xml
-└── audit-log-service/
-    ├── src/main/java/com/infradomain/auditlog/
-    │   ├── AuditLogApplication.java
-    │   └── controller/
-    │       └── AuditLogController.java
-    └── resources/
-        └── application.yml
-```
 
-## Comunicação entre Serviços
+### Resumo
 
-**Frontend → Gateway → Microsserviço**
-
-URL Frontend: http://localhost:4200
-URL de rotas padrão: `http://localhost:8080/api/v1/{serviço}/{recurso}`
-
-| Serviço                     | Porta  | Exemplo de endpoint             |
-|-----------------------------|--------|---------------------------------|
-| `config-service`            | `8888` | `/**`                           |
-| `discovery-service`         | `8761` | `/**`                           |
-| `api-gateway`               | `8080` | `/**`                           |
-| `auth-security-service`     | `8081` | `/api/v1/auth/**`               |
-| `users-service`             | `8082` | `/api/v1/users/**`              |
-| `roles-service`             | `8083` | `/api/v1/roles/**`              |
-| `billing-service`           | `8084` | `/api/v1/billing/**`            |
-| `finance-service`           | `8085` | `/api/v1/finance/**`            |
-| `supplier-service`          | `8086` | `/api/v1/suppliers/**`          |
-| `beer-service`              | `8087` | `/api/v1/beers/**`              |
-| `product-service`           | `8088` | `/api/v1/products/**`           |
-| `tap-service`               | `8089` | `/api/v1/taps/**`               |
-| `pos-service`               | `8090` | `/api/v1/sales/**`              |
-| `audit-log-service`         | `8091` | `/api/v1/audit/**`              |
-| `container-measure-service` | `8093` | `/api/v1/container-measures/**` |
+| Diretório              | Responsabilidade                                   | Exemplos                                       |
+|------------------------|----------------------------------------------------|------------------------------------------------|
+| **config/**            | Configurações globais e beans reutilizáveis        | `CorsConfig`, `WebClientConfig`, `CacheConfig` |
+| **config/gateway/**    | Rotas de cada microserviço com filtros específicos | `UserGatewayConfig`, `AuditGatewayConfig`      |
+| **config/resilience/** | Resiliência e fallback centralizados               | `CircuitBreakerConfig`, `FallbackController`   |
+| **filter/**            | Filtros globais e cross-cutting concerns           | `AuditGlobalFilter`, `LoggingFilter`           |
+| **controller/**        | Endpoints internos do Gateway                      | `/health`, `/fallback`                         |
+| **util/**              | Classes auxiliares, parsing, headers, logs, etc.   | `RequestUtils`                                 |
 
 ---
-
-Divisão do _identity-profiles_ em subdomínios:
-
-| Novo serviço        | Responsabilidade principal                            |
-|---------------------|-------------------------------------------------------|
-| `users-service`     | CRUD de usuários, perfis, senhas                      |
-| `roles-service`     | Perfis de acesso, permissões, vínculos usuário ↔ role |
-| `audit-log-service` | Registro e consulta de logs de auditoria              |
-
-Sugestão de endpoints:
-
-* users-service → http://localhost:8082/api/v1/users
-* roles-service → http://localhost:8083/api/v1/roles
-* audit-log → http://localhost:8089/api/v1/audit
-
----
-
-## Serviço de Auditoria Centralizado (`audit-log-service`)
-
----
-
-## Caminho Evolutivo
-
-| Etapa | Ação                                                            | Observação                          |
-|-------|-----------------------------------------------------------------|-------------------------------------|
-| 1     | Implementar Gateway com CORS global e rotas locais              | (feito acima)                       |
-| 2     | Dividir `identity-profiles` → `users-service` + `roles-service` | facilita segurança e escalabilidade |
-| 3     | Criar `audit-log-service` e integrar via REST                   | depois migrar para mensageria       |
-| 4     | Incluir `auth-security-service` (JWT, Keycloak ou OAuth2)       | após microsserviços estáveis        |
-| 5     | Migrar URIs locais → `lb://SERVICE-NAME` no Eureka              | cloud-ready                         |
-| 6     | Adicionar circuit breaker, retries, rate-limit, logs            | resiliente e observável             |
