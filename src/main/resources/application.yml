@@ -15,34 +15,34 @@ spring:
             locator:
               enabled: true
               lower-case-service-id: true
-
+# Eureka Client Configuration
 eureka:
   client:
     fetch-registry: true
     register-with-eureka: true
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      # Permite sobrescrever via Compose
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
   instance:
-    hostname: localhost
+    # Faz com que o Eureka mostre o IP e não o host.docker.internal
     prefer-ip-address: true
-    instance-id: api-gateway:local
-
+    # Dinâmico para evitar conflitos se subir várias instâncias
+    instance-id: ${spring.application.name}:${random.value} # api-gateway:local
+# Actuator
 management:
   endpoints:
     web:
       discovery:
         enabled: true
       exposure:
-        include:
-          - health
-          - info
-          - metrics
+        include: health, info, metrics
   endpoint:
     health:
       show-details: ALWAYS
-
+# Logging
 logging:
   level:
-    web: info
-    root: info
-    org.springframework.cloud: debug
+    web: INFO
+    root: INFO
+    org.springframework.cloud: INFO
+    com.infradomain.apigateway: DEBUG
