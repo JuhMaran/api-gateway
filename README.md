@@ -1,6 +1,107 @@
-# API Gateway
+# 🚀 API Gateway
 
-## Executar a Aplicação
+API Gateway implementado com **Spring Cloud Gateway** e **Eureka Discovery**, usando **Java 25** e **Spring Boot 3.5.6
+**.
+
+---
+
+## Funcionalidades
+
+- **Roteamento dinâmico** de APIs via `RouteLocator` (WebFlux).
+- **Auditoria global** de requisições enviadas ao serviço de audit.
+- **CORS global** configurado via `WebFluxConfigurer`.
+- **Log de requisições e respostas** do gateway.
+- **Integração com Eureka** para descoberta automática de serviços.
+- **Actuator** habilitado para métricas e health checks.
+- **Dockerfile** pronto para execução local.
+
+---
+
+## Rotas configuradas
+
+| Serviço                   | Endpoint no Gateway             | URL Interna             |
+|---------------------------|---------------------------------|-------------------------|
+| Auth Service              | `/api/v1/auth/**`               | `http://localhost:8081` |
+| Users Service             | `/api/v1/users/**`              | `http://localhost:8082` |
+| Roles Service             | `/api/v1/roles/**`              | `http://localhost:8083` |
+| Billing Service           | `/api/v1/billing/**`            | `http://localhost:8084` |
+| Finance Service           | `/api/v1/finance/**`            | `http://localhost:8085` |
+| Supplier Service          | `/api/v1/suppliers/**`          | `http://localhost:8086` |
+| Beer Service              | `/api/v1/beers/**`              | `http://localhost:8087` |
+| Product Service           | `/api/v1/products/**`           | `http://localhost:8088` |
+| Tap Service               | `/api/v1/taps/**`               | `http://localhost:8089` |
+| POS Service               | `/api/v1/sales/**`              | `http://localhost:8090` |
+| Audit Log Service         | `/api/v1/audit/**`              | `http://localhost:8091` |
+| Container Measure Service | `/api/v1/container-measures/**` | `http://localhost:8093` |
+
+---
+
+## Configuração CORS
+
+Permitido apenas o frontend **http://localhost:4200**.  
+Métodos permitidos: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`.
+
+---
+
+## Como executar
+
+### Local
+
+```bash
+mvn clean spring-boot:run
+````
+
+### Docker (local)
+
+```bash
+docker build -t api-gateway .
+docker run -p 8080:8080 api-gateway
+```
+
+---
+
+## Observabilidade
+
+* **Actuator endpoints:**
+
+    * `/actuator/health`
+    * `/actuator/info`
+    * `/actuator/metrics`
+
+* **Logs:**
+
+    * Console (colorido)
+    * Arquivo em `logs/api-gateway.log` (rolling diário)
+
+---
+
+## Dependências principais
+
+* Spring Boot 3.5.6
+* Spring Cloud Gateway WebFlux
+* Spring Cloud Eureka Client
+* Reactor
+* Logback
+* Actuator
+
+---
+
+## 🧑‍💻 **Desenvolvido por**
+
+**Juliane Maran**
+📧 [julianemaran@gmail.com](mailto:julianemaran@gmail.com)
+💼 [github.com/JuhMaran](https://github.com/JuhMaran)
+
+---
+
+## 🪪 **Licença**
+
+Distribuído sob licença **Apache 2.0**.
+Consulte [LICENSE](https://www.apache.org/licenses/LICENSE-2.0) para mais detalhes.
+
+---
+
+## Observação sobre Execução
 
 ### Usando Docker
 
@@ -20,86 +121,3 @@ docker run -d --network taptrack-net --name gateway api-gateway
 docker run -d --network taptrack-net --name container-measure container-measure-service
 docker run -d --network taptrack-net --name frontend -p 4200:4200 taptrack-frontend
 ```
-
----
-
-## Estrutura de Pastas
-
-```
-infra-domain/
-├── api-gateway/
-│   ├── src/main/java/com/infradomain/apigateway/
-│   │   ├── ApiGatewayApplication.java
-│   │   └── config/
-│   │       ├── GatewayConfig.java
-│   │       ├── CorsGlobalConfiguration.java
-│   │       └── AuditGlobalFilter.java
-│   └── resources/
-│       ├── application.yml
-│       └── logback-spring.xml
-└── audit-log-service/
-    ├── src/main/java/com/infradomain/auditlog/
-    │   ├── AuditLogApplication.java
-    │   └── controller/
-    │       └── AuditLogController.java
-    └── resources/
-        └── application.yml
-```
-
-## Comunicação entre Serviços
-
-**Frontend → Gateway → Microsserviço**
-
-URL Frontend: http://localhost:4200
-URL de rotas padrão: `http://localhost:8080/api/v1/{serviço}/{recurso}`
-
-| Serviço                     | Porta  | Exemplo de endpoint             |
-|-----------------------------|--------|---------------------------------|
-| `config-service`            | `8888` | `/**`                           |
-| `discovery-service`         | `8761` | `/**`                           |
-| `api-gateway`               | `8080` | `/**`                           |
-| `auth-security-service`     | `8081` | `/api/v1/auth/**`               |
-| `users-service`             | `8082` | `/api/v1/users/**`              |
-| `roles-service`             | `8083` | `/api/v1/roles/**`              |
-| `billing-service`           | `8084` | `/api/v1/billing/**`            |
-| `finance-service`           | `8085` | `/api/v1/finance/**`            |
-| `supplier-service`          | `8086` | `/api/v1/suppliers/**`          |
-| `beer-service`              | `8087` | `/api/v1/beers/**`              |
-| `product-service`           | `8088` | `/api/v1/products/**`           |
-| `tap-service`               | `8089` | `/api/v1/taps/**`               |
-| `pos-service`               | `8090` | `/api/v1/sales/**`              |
-| `audit-log-service`         | `8091` | `/api/v1/audit/**`              |
-| `container-measure-service` | `8093` | `/api/v1/container-measures/**` |
-
----
-
-Divisão do _identity-profiles_ em subdomínios:
-
-| Novo serviço        | Responsabilidade principal                            |
-|---------------------|-------------------------------------------------------|
-| `users-service`     | CRUD de usuários, perfis, senhas                      |
-| `roles-service`     | Perfis de acesso, permissões, vínculos usuário ↔ role |
-| `audit-log-service` | Registro e consulta de logs de auditoria              |
-
-Sugestão de endpoints:
-
-* users-service → http://localhost:8082/api/v1/users
-* roles-service → http://localhost:8083/api/v1/roles
-* audit-log → http://localhost:8089/api/v1/audit
-
----
-
-## Serviço de Auditoria Centralizado (`audit-log-service`)
-
----
-
-## Caminho Evolutivo
-
-| Etapa | Ação                                                            | Observação                          |
-|-------|-----------------------------------------------------------------|-------------------------------------|
-| 1     | Implementar Gateway com CORS global e rotas locais              | (feito acima)                       |
-| 2     | Dividir `identity-profiles` → `users-service` + `roles-service` | facilita segurança e escalabilidade |
-| 3     | Criar `audit-log-service` e integrar via REST                   | depois migrar para mensageria       |
-| 4     | Incluir `auth-security-service` (JWT, Keycloak ou OAuth2)       | após microsserviços estáveis        |
-| 5     | Migrar URIs locais → `lb://SERVICE-NAME` no Eureka              | cloud-ready                         |
-| 6     | Adicionar circuit breaker, retries, rate-limit, logs            | resiliente e observável             |
