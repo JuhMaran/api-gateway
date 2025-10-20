@@ -1,4 +1,4 @@
-package com.infradomain.apigateway.config;
+package com.infradomain.apigateway.config.gateway;
 
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;

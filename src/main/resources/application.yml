@@ -1,10 +1,14 @@
-# application.yml - Configuração padrão (desenvolvimento/local)
+# application-prod.yml - Configurações de produção para API Gateway
+
 server:
   port: 8080
+  shutdown: graceful
 
 spring:
   application:
     name: api-gateway
+  profiles:
+    active: dev
   cloud:
     discovery:
       enabled: true
@@ -15,13 +19,25 @@ spring:
             locator:
               enabled: true
               lower-case-service-id: true
+    loadbalancer:
+      cache:
+        caffeine:
+          spec: expireAfterWrite=10m,maximumSize=1000
 
-# CORS - frontend local
-gateway:
-  cors:
-    allowed-origins: "http://localhost:4200"
+# Observabilidade e gerenciamento
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: ALWAYS
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
-# Eureka Client - desenvolvimento
+# Eureka Client (com fallback para variável de ambiente)
 eureka:
   client:
     fetch-registry: true
@@ -30,23 +46,12 @@ eureka:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
-    instance-id: ${spring.application.name}:${random.value} # ex: api-gateway:local
+    instance-id: ${spring.application.name}:${random.value}
 
-# Actuator
-management:
-  endpoints:
-    web:
-      discovery:
-        enabled: true
-      exposure:
-        include: health, info, metrics
-  endpoint:
-    health:
-      show-details: ALWAYS
-
-# Logging - desenvolvimento
+# Logging padrão
 logging:
   level:
     root: INFO
-    org.springframework.cloud: INFO
-    com.infradomain.apigateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.web.reactive: INFO
+    com.infradomain.apigateway: INFO

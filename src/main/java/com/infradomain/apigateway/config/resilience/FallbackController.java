@@ -1,4 +1,4 @@
-package com.infradomain.apigateway.controller;
+package com.infradomain.apigateway.config.resilience;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

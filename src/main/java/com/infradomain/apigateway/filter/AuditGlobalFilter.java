@@ -1,4 +1,4 @@
-package com.infradomain.apigateway.config.audit;
+package com.infradomain.apigateway.filter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

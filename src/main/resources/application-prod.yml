@@ -1,53 +1,42 @@
-# application-prod.yml - Configurações de produção para API Gateway
-
-server:
-  port: 8080
-
+# application-prod.yml — Configuração de Produção
 spring:
-  application:
-    name: api-gateway
+  config:
+    activate:
+      on-profile: prod
   cloud:
-    discovery:
-      enabled: true
     gateway:
       server:
         webflux:
-          discovery:
-            locator:
-              enabled: true
-              lower-case-service-id: true
+          httpclient:
+            connect-timeout: 3000
+            response-timeout: 10s
 
-# CORS - frontend de produção
 gateway:
   cors:
-    allowed-origins: "https://meu-frontend.com"
+    allowed-origins:
+      - https://app.taptrack.com
+      - https://cliente.taptrack.com
 
-# Eureka Client - produção
 eureka:
   client:
-    fetch-registry: true
-    register-with-eureka: true
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka-prod:8761/eureka/}
-  instance:
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${random.value}
 
-# Actuator
 management:
-  endpoints:
-    web:
-      discovery:
-        enabled: true
-      exposure:
-        include: health, info, metrics
   endpoint:
     health:
-      show-details: ALWAYS
+      show-details: WHEN_AUTHORIZED
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  metrics:
+    tags:
+      environment: prod
 
-# Logging - produção
 logging:
   level:
     root: INFO
-    org.springframework.cloud: INFO
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: WARN
     com.infradomain.apigateway: INFO
