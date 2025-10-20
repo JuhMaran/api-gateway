@@ -1,4 +1,4 @@
-package com.infradomain.apigateway.config;
+package com.infradomain.apigateway.config.logger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
